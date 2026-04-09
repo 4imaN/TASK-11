@@ -1,0 +1,12 @@
+node_modules/
+.env
+*.log
+build/
+.svelte-kit/
+dist/
+.venv/
+__pycache__/
+.DS_Store
+evidence-storage/
+*.tmp
+.claude

@@ -1,0 +1,16 @@
+{
+  "type": "module",
+  "name": "repo",
+  "version": "1.0.0",
+  "description": "A local-network/offline-first web application for managing pet pharmaceutical catalogs, internal procurement ordering, seat-style inventory locking, warehouse fulfillment dispatch, and outcomes/evidence management.",
+  "main": "index.js",
+  "scripts": {
+    "test": "./run_tests.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.50.1"
+  }
+}

@@ -1,0 +1,59 @@
+name: petmed
+
+# For production, copy .env.example to .env and customize secrets.
+# Dev defaults below work for local development.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: petmed
+      POSTGRES_USER: petmed
+      POSTGRES_PASSWORD: petmed_dev_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - petmed_pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./scripts/seed-data.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U petmed"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3020:3020"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://petmed:petmed_dev_password@db:5432/petmed
+      # CHANGE IN PRODUCTION — see README Security Notes
+      SESSION_SECRET: pm-s3ss10n-k3y-d3v-0nly-ch4ng3-1n-pr0d
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+      EVIDENCE_STORAGE_PATH: /app/evidence-storage
+      PORT: 3020
+      HOST: 0.0.0.0
+    volumes:
+      - petmed_evidence:/app/evidence-storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5175:3000"
+    environment:
+      API_BACKEND_URL: http://backend:3020
+      ORIGIN: http://localhost:5175
+    depends_on:
+      - backend
+
+volumes:
+  petmed_pgdata:
+  petmed_evidence:
