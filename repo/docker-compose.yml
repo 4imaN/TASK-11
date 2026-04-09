@@ -54,6 +54,23 @@ services:
     depends_on:
       - backend
 
+  test-runner:
+    image: node:20-alpine
+    working_dir: /repo
+    volumes:
+      - .:/repo
+    environment:
+      DATABASE_URL: postgresql://petmed:petmed_dev_password@db:5432/petmed
+      API_URL: http://backend:3020
+      NODE_ENV: test
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    profiles:
+      - test
+
 volumes:
   petmed_pgdata:
   petmed_evidence:
