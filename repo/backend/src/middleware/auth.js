@@ -9,6 +9,13 @@ import { hashToken } from '../utils/crypto.js';
 
 export const SESSION_TIMEOUT_HOURS = 8;
 
+/** Pure function: returns true if the session is expired by inactivity. */
+export function isSessionExpired(lastActivityAt, now = new Date()) {
+  const lastActivity = new Date(lastActivityAt);
+  const inactivityLimit = new Date(lastActivity.getTime() + SESSION_TIMEOUT_HOURS * 60 * 60 * 1000);
+  return now > inactivityLimit;
+}
+
 export async function authenticate(request, reply) {
   const token = request.cookies?.petmed_session;
   if (!token) {

@@ -1,12 +1,18 @@
 # PetMed Operations & Procurement Suite
 
+**Project Type:** fullstack
+
 A local-network/offline-first web application for managing pet pharmaceutical catalogs, internal procurement ordering, seat-style inventory locking, warehouse fulfillment dispatch, and outcomes/evidence management.
 
 ## Quick Start
 
 ```bash
+docker-compose up
+# or equivalently:
 docker compose up --build
 ```
+
+All dependencies run inside Docker. No external services or local runtimes required.
 
 Services will be available at:
 - **Frontend:** http://localhost:5175
@@ -127,61 +133,58 @@ repo/
 
 ## Running Tests
 
+All tests run inside Docker or against Docker-hosted services. No local Node.js, Chrome, or PostgreSQL installation is required beyond Docker itself.
+
 ```bash
-# Unit tests only (no backend required)
-cd backend && NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js --testPathPattern='unit_tests' --forceExit
-
-# API tests require:
-# - Docker Compose services running (`docker compose up -d`)
-# - The test runner resets database state before API tests
-cd backend && NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js --testPathPattern='API_tests' --forceExit
-
-# Both (using the entrypoint script)
+# Canonical test command (runs unit, frontend, and API tests):
 ./run_tests.sh
 ```
 
+The test runner:
+1. Runs backend unit tests inside the project
+2. Runs frontend component tests via Vitest
+3. Resets database state via `docker compose exec`
+4. Runs API integration tests against the running backend
+
 ### E2E Tests (Playwright)
 
-Configuration lives in `playwright.config.js` at the repo root. Key settings:
-
-| Setting | Value |
-|---|---|
-| Test directory | `./e2e_tests` |
-| Frontend URL | `http://localhost:5174` (Playwright-managed dev server) |
-| Backend URL / port | `http://localhost:3010` (Playwright-managed) |
-| Test DB port | `5433` (via `docker-compose.test.yml`) |
-| Browser | Local Chrome (`channel: 'chrome'`) |
-
-E2E tests require:
-- A local **Chrome** installation (Playwright uses it via the `chrome` channel)
-- A running **PostgreSQL** instance seeded with test data (start one with `docker compose -f docker-compose.test.yml up -d`)
-
-Playwright will automatically start the backend (port 3010) and frontend (port 5174) dev servers as configured in `playwright.config.js`. You do **not** need to start them manually.
+E2E tests use a separate Docker Compose stack with isolated ports. Playwright, the browser, and the test database all run via Docker.
 
 ```bash
-# 1. Start the test database (port 5433)
+# Start the E2E test environment
 docker compose -f docker-compose.test.yml up -d
 
-# 2. Run Playwright E2E tests (backend + frontend started automatically)
-npx playwright test
-
-# To see the HTML report after a run:
-npx playwright show-report
+# Run E2E tests (Playwright manages backend + frontend dev servers)
+docker compose -f docker-compose.test.yml exec app npx playwright test
 ```
 
-> **Note:** The E2E test ports (3010 / 5174 / 5433) are intentionally different
-> from the main docker-compose ports (3020 / 5175 / 5434) so both environments
-> can run simultaneously.
+> E2E test ports (3010/5174/5433) are isolated from the main stack (3020/5175/5434).
 
 ## Verification Flow
 
-1. Run `docker compose up --build`
-2. Open http://localhost:5175
-3. Login as `admin` / `password123`
-4. Navigate Admin > Products to see seed SPUs
-5. Navigate Admin > Inventory to see stock levels with threshold indicators
-6. Login as `buyer1` to test catalog and cart flows
-7. Login as `dispatcher1` to view the task board
+After `docker-compose up`, verify the system:
+
+### UI Verification
+1. Open http://localhost:5175
+2. Login as `admin` / `password123`
+3. Navigate Admin > Products to see seed SPUs
+4. Navigate Admin > Inventory to see stock levels
+5. Login as `buyer1` to test catalog and cart flows
+6. Login as `dispatcher1` to view the task board
+
+### API Verification
+```bash
+# Health check
+curl http://localhost:3020/api/health
+
+# Login and get session cookie
+curl -c /tmp/petmed.cookie -X POST http://localhost:3020/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"password123"}'
+
+# Authenticated endpoint: list products
+curl -b /tmp/petmed.cookie http://localhost:3020/api/spus?limit=3
+```
 8. Run `./run_tests.sh` to execute all tests
 
 ## Security

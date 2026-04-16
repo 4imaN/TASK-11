@@ -1,35 +1,23 @@
-import { describe, test, expect } from '@jest/globals';
-import { normalizeText, trigramSimilarity } from '../backend/src/services/outcomes.js';
+import { describe, test, expect, jest, beforeAll } from '@jest/globals';
 
-// NOTE: We keep a local version of checkDuplicateWarnings for testing because the
-// backend service version (in outcomes.js) operates on encrypted certificate numbers
-// (using decrypt()), whereas this test version works with plain-text certificate_number
-// fields. The title-matching logic is identical; only the cert-number access differs.
-function checkDuplicateWarnings(title, certNumber, existingOutcomes) {
-  const warnings = [];
-  const normalizedTitle = normalizeText(title);
-  const normalizedCert = certNumber ? normalizeText(certNumber) : null;
+// Mock the crypto module so decrypt returns the value as-is.
+// This lets us test checkDuplicateWarnings with plain-text certificate values
+// instead of requiring real encrypted data.
+jest.unstable_mockModule('../backend/src/utils/crypto.js', () => ({
+  encrypt: (val) => val,
+  decrypt: (val) => val,
+  maskCertificateNumber: (val) => val,
+  computeFileChecksum: () => 'mock-checksum',
+}));
 
-  for (const existing of existingOutcomes) {
-    const existingTitle = normalizeText(existing.title);
-    if (existingTitle === normalizedTitle) {
-      warnings.push({ field: 'title', match_type: 'exact', existing_id: existing.id });
-    } else if (trigramSimilarity(normalizedTitle, existingTitle) > 0.6) {
-      warnings.push({ field: 'title', match_type: 'near', existing_id: existing.id });
-    }
-
-    if (normalizedCert && existing.certificate_number) {
-      const existingCert = normalizeText(existing.certificate_number);
-      if (existingCert === normalizedCert) {
-        warnings.push({ field: 'certificate_number', match_type: 'exact', existing_id: existing.id });
-      } else if (trigramSimilarity(normalizedCert, existingCert) > 0.7) {
-        warnings.push({ field: 'certificate_number', match_type: 'near', existing_id: existing.id });
-      }
-    }
-  }
-
-  return warnings;
-}
+// Import production functions after mocking
+let normalizeText, trigramSimilarity, checkDuplicateWarnings;
+beforeAll(async () => {
+  const outcomes = await import('../backend/src/services/outcomes.js');
+  normalizeText = outcomes.normalizeText;
+  trigramSimilarity = outcomes.trigramSimilarity;
+  checkDuplicateWarnings = outcomes.checkDuplicateWarnings;
+});
 
 describe('Text Normalization', () => {
   test('lowercases text', () => {
@@ -70,9 +58,11 @@ describe('Trigram Similarity', () => {
 });
 
 describe('Duplicate Warnings', () => {
+  // Use certificate_number_encrypted field to match the production function's expectations.
+  // With our decrypt mock, the plain-text value is returned unchanged.
   const existing = [
-    { id: '1', title: 'Canine Antibiotic Study', certificate_number: 'CERT-001' },
-    { id: '2', title: 'Feline Vaccine Research', certificate_number: 'CERT-002' },
+    { id: '1', title: 'Canine Antibiotic Study', certificate_number_encrypted: 'CERT-001' },
+    { id: '2', title: 'Feline Vaccine Research', certificate_number_encrypted: 'CERT-002' },
   ];
 
   test('exact title match produces exact warning', () => {

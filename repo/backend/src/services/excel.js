@@ -162,7 +162,7 @@ export async function validateImport(type, fileBuffer, userId) {
   };
 }
 
-function validateRowByType(type, data) {
+export function validateRowByType(type, data) {
   const errors = [];
   switch (type) {
     case 'spu':

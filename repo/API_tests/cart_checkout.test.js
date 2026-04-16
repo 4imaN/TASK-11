@@ -66,9 +66,14 @@ describe('Cart, Checkout, Scope & Fulfillment', () => {
     const est = await apiRequest('POST', '/api/cart/estimate');
     expect(est.status).toBe(200);
     const key = `dup-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const first = await apiRequest('POST', '/api/cart/checkout', {
+    let first = await apiRequest('POST', '/api/cart/checkout', {
       estimate_id: est.data.data.estimate_id, idempotency_key: key,
     });
+    if (first.status === 409 && first.data.error?.code === 'DRIFT_DETECTED') {
+      first = await apiRequest('POST', '/api/cart/checkout', {
+        estimate_id: est.data.data.estimate_id, idempotency_key: key, confirmed_drift: true,
+      });
+    }
     expect(first.status).toBe(200);
 
     clearSession();

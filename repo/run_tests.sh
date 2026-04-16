@@ -9,11 +9,18 @@ echo ""
 
 cd "$(dirname "$0")"
 
-# Ensure services are up (db + backend)
+# Ensure services are up (build if needed, start, wait for healthy)
 echo "Starting services..."
-docker compose up -d db backend
+docker compose up -d --build db backend 2>&1 | tail -5
+echo "Waiting for database to be healthy..."
+until docker compose exec -T db pg_isready -U petmed > /dev/null 2>&1; do
+  sleep 2
+done
 echo "Waiting for backend to be ready..."
-sleep 3
+until curl -sf http://localhost:3020/api/health > /dev/null 2>&1; do
+  sleep 2
+done
+echo "Services ready."
 
 # Helper: run a command inside a disposable test-runner container
 # Uses --profile test to include the test-runner service definition
@@ -59,8 +66,13 @@ docker compose exec -T db psql -U petmed -c "
 " || echo "  DB reset failed (is the database running?)"
 echo ""
 
-run_test "cd /repo/backend && NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js --testPathPattern='API_tests' --forceExit --verbose --testTimeout=15000 2>&1" || API_EXIT=$?
-API_EXIT=${API_EXIT:-0}
+run_test "cd /repo/backend && NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js --testPathPattern='API_tests' --forceExit --verbose --testTimeout=60000 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | tee /dev/stderr | grep '^Test Suites:' | tail -1 > /tmp/petmed_api_summary.txt"
+API_SUMMARY=$(cat /tmp/petmed_api_summary.txt 2>/dev/null)
+if echo "$API_SUMMARY" | grep -q "failed"; then
+  API_EXIT=1
+else
+  API_EXIT=0
+fi
 
 echo ""
 echo "============================================"

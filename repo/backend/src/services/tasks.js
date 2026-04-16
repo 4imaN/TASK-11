@@ -2,6 +2,19 @@ import { query, transaction } from '../db/pool.js';
 import { Errors } from '../utils/errors.js';
 import { logAudit } from '../utils/audit.js';
 
+/**
+ * Pure function: determines if a non-admin user can see a specific task.
+ * Admins can see all tasks. Non-admins can see:
+ * - Tasks assigned to them
+ * - Open unassigned (grabbable) tasks
+ */
+export function canUserSeeTask(task, userId, isAdmin) {
+  if (isAdmin) return true;
+  if (task.assigned_user_id === userId) return true;
+  if (!task.assigned_user_id && task.status === 'open') return true;
+  return false;
+}
+
 export function computeTaskScore(task, workerMetric, weights) {
   const w = weights || { time_window: 0.4, workload: 0.3, reputation: 0.3 };
 
@@ -193,7 +206,15 @@ export async function assignTask(taskId, assignedUserId) {
       [taskId, assignedUserId, 'assigned']
     );
 
-    return getTask(taskId);
+    // Read within transaction to return committed state
+    const result = await client.query(
+      `SELECT t.*, w.name as warehouse_name, u.display_name as assigned_user_name
+       FROM tasks t
+       LEFT JOIN warehouses w ON w.id = t.warehouse_id
+       LEFT JOIN users u ON u.id = t.assigned_user_id
+       WHERE t.id = $1`, [taskId]
+    );
+    return result.rows[0];
   });
 }
 

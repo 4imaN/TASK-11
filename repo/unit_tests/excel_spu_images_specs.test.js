@@ -1,46 +1,15 @@
 import { describe, test, expect } from '@jest/globals';
+import { validateRowByType } from '../backend/src/services/excel.js';
 
 /**
  * Excel SPU Import/Export — validates row-level validation logic for
  * the new image_urls and spec_attributes columns.
  *
- * We extract and test the validation rules directly rather than going through
- * the full import pipeline (which requires DB + ExcelJS file creation).
+ * Tests the production validateRowByType function directly.
  */
 
-// Replicate the validation logic extracted from excel.js validateRowByType for SPU
 function validateSpuRow(data) {
-  const errors = [];
-  if (data.status && !['draft', 'published', 'unpublished', 'archived'].includes(data.status)) {
-    errors.push({ field: 'status', message: 'Status must be draft, published, unpublished, or archived' });
-  }
-  if (data.image_urls) {
-    const urls = data.image_urls.split('|').map(u => u.trim()).filter(Boolean);
-    for (const url of urls) {
-      if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('/')) {
-        errors.push({ field: 'image_urls', message: `Invalid image URL: "${url}" (must start with http://, https://, or /)` });
-        break;
-      }
-    }
-  }
-  if (data.spec_attributes) {
-    try {
-      const parsed = JSON.parse(data.spec_attributes);
-      if (!Array.isArray(parsed)) {
-        errors.push({ field: 'spec_attributes', message: 'Spec Attributes must be a JSON array' });
-      } else {
-        for (const spec of parsed) {
-          if (!spec.name || !Array.isArray(spec.values)) {
-            errors.push({ field: 'spec_attributes', message: 'Each spec attribute must have "name" (string) and "values" (array)' });
-            break;
-          }
-        }
-      }
-    } catch {
-      errors.push({ field: 'spec_attributes', message: 'Spec Attributes must be valid JSON' });
-    }
-  }
-  return errors;
+  return validateRowByType('spu', data);
 }
 
 describe('SPU Excel Import — Image URL Validation', () => {

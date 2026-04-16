@@ -62,8 +62,8 @@ describe('Security & Isolation Tests', () => {
       },
       body: JSON.stringify({ entity_type: 'test', action: 'test', payload: {} }),
     });
-    // Should reject (401 bad token or 403 bad signature)
-    expect([401, 403]).toContain(res.status);
+    // fake-token doesn't exist → 401 before signature check
+    expect(res.status).toBe(401);
   });
 
   test('integration rejects wrong-length signature', async () => {
@@ -77,7 +77,7 @@ describe('Security & Isolation Tests', () => {
       },
       body: JSON.stringify({ entity_type: 'test', action: 'test', payload: {} }),
     });
-    expect([401, 403]).toContain(res.status);
+    expect(res.status).toBe(401);
   });
 
   // ─── Health endpoint contract ───
@@ -96,7 +96,7 @@ describe('Security & Isolation Tests', () => {
     clearSession();
     await loginAsBuyer();
     const res = await apiRequest('GET', '/api/holds/00000000-0000-0000-0000-000000000000');
-    expect([403, 404]).toContain(res.status);
+    expect(res.status).toBe(404);
   });
 
   // ─── Evidence authorization ───
@@ -173,7 +173,7 @@ describe('Security & Isolation Tests', () => {
       slot_ids: ['00000000-0000-0000-0000-000000000000'],
       client_request_key: `deny-test-${Date.now()}`,
     });
-    expect([403, 404]).toContain(res.status);
+    expect(res.status).toBe(404);
   });
 
   test('dispatcher cannot access evidence download', async () => {
@@ -193,8 +193,8 @@ describe('Security & Isolation Tests', () => {
       warehouse_id: 'c0000000-0000-0000-0000-000000000001',
       available_qty: 10,
     });
-    // Should be 400 (FK violation mapped) not 500
-    expect([400, 404]).toContain(res.status);
+    // FK violation mapped to 400 by global error handler
+    expect(res.status).toBe(400);
   });
 
   // NOTE: Session inactivity (8h timeout) enforcement is tested by the middleware code

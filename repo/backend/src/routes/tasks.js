@@ -7,8 +7,13 @@ function hasAdminPermission(user) {
 }
 
 // Non-admin users may only use these modes. Any other value is normalized to the default.
-const ALLOWED_NON_ADMIN_MODES = new Set(['grab', 'assigned', 'own_and_grab']);
-const DEFAULT_NON_ADMIN_MODE = 'own_and_grab';
+export const ALLOWED_NON_ADMIN_MODES = new Set(['grab', 'assigned', 'own_and_grab']);
+export const DEFAULT_NON_ADMIN_MODE = 'own_and_grab';
+
+export function normalizeMode(mode, isAdmin) {
+  if (isAdmin) return mode;
+  return ALLOWED_NON_ADMIN_MODES.has(mode) ? mode : DEFAULT_NON_ADMIN_MODE;
+}
 
 export default async function taskRoutes(fastify) {
   fastify.get('/api/tasks', {
